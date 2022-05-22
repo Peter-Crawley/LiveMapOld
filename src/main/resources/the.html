@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>LiveMap</title>
+		<meta name="viewport" content="width=device-width,initial-scale=1">
+		<style>
+			body {
+				overflow: hidden;
+				background: #111
+			}
+
+			canvas {
+				position: absolute
+			}
+		</style>
+		<script>
+			const webSocket = new WebSocket("ws://localhost:8080/map");
+			webSocket.binaryType = "arraybuffer";
+
+			var timeout;
+
+			var interval = setInterval(() => {
+				webSocket.send(new Uint8Array([0]));
+				timeout = setTimeout(() => {
+					webSocket.close();
+					alert("Disconnected from server: Timed out!");
+				}, 5000);
+			}, 5000);
+
+			webSocket.onclose = (event) => {
+				if (event.code != 1000) {
+					alert("Disconnected from server: " + event.reason);
+				}
+				clearTimeout(timeout);
+				clearInterval(interval);
+			};
+
+			var scale = 1;
+
+			var colourPalette = [];
+
+			var originX = 0;
+			var originY = 0;
+
+//			function requestVisibleRegions() {
+//				// Get window size
+//				var width = window.innerWidth;
+//				var height = window.innerHeight;
+//
+//				// Divide by scale
+//				width /= scale;
+//				height /= scale;
+//
+//				// Calculate corners
+//				var topLeftX = originX - width / 2;
+//				var topLeftY = originY - height / 2;
+//				var bottomRightX = originX + width / 2;
+//				var bottomRightY = originY + height / 2;
+//
+//				// Calculate all 32x32 regions that are visible
+//				var regions = [];
+//				for (var x = Math.floor(topLeftX / 32); x <= Math.floor(bottomRightX / 32); x++) {
+//					for (var y = Math.floor(topLeftY / 32); y <= Math.floor(bottomRightY / 32); y++) {
+//						regions.push([x,y]);
+//					}
+//				}
+//
+//				// For each region send a request
+//				// [0x02, x as Short, y as Short]
+//				for (var region of regions) {
+//					webSocket.send(new Uint8Array([0x03, region[0] >> 8, region[0] & 0xFF, region[1] >> 8, region[1] & 0xFF]));
+//				}
+//			}
+//
+//			webSocket.onopen = () => {
+//				requestVisibleRegions();
+//			};
+
+			webSocket.onmessage = (event) => {
+				const data = new Uint8Array(event.data);
+				var position = 0;
+
+				switch (data[position++]) {
+					case 0x00:
+						clearTimeout(timeout);
+						break;
+					case 0x01:
+						while (position < data.length) {
+							var stringLength = data[position++];
+							var world = String.fromCharCode.apply(null, data.subarray(position, position + stringLength));
+							position += stringLength;
+
+							var option = document.createElement("option");
+							option.value = world;
+							option.innerText = world;
+							document.getElementById("world").appendChild(option);
+						}
+						break;
+					case 0x02:
+						colourPalette = [];
+						while (position < data.length) {
+							colourPalette.push(data[position++] << 24 | data[position++] << 16 | data[position++] << 8 | data[position++]);
+						}
+						console.log(colourPalette);
+						break;
+					default:
+						alert("Unknown Message: " + Array.from(data).map(x => x.toString(16).padStart(2, "0")).join(" "));
+						break;
+				}
+			};
+
+			function updateWorld() {
+				webSocket.send(
+					new Uint8Array([
+						0x01,
+						document.getElementById("world").value.length,
+						...document.getElementById("world").value.split("").map(x => x.charCodeAt(0))
+					])
+				);
+			};
+		</script>
+	</head>
+	<body>
+		<select id="world" onchange="updateWorld()"></select>
+
+	</body>
+</html>
