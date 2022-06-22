@@ -23,7 +23,7 @@ dependencies {
 	// Loaded by Server
 	compileOnly(kotlin("stdlib"))
 	compileOnly("jakarta.websocket:jakarta.websocket-api:2.1.0")
-	compileOnly("org.eclipse.jetty.websocket:websocket-jakarta-server:11.0.9")
+	compileOnly("org.eclipse.jetty.websocket:websocket-jakarta-server:11.0.11")
 }
 
 tasks {
